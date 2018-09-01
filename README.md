@@ -1,0 +1,2 @@
+# go-authserver
+JWT authentication
