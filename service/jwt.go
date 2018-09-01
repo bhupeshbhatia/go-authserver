@@ -123,6 +123,7 @@ func GenerateAccessToken(userUUID string) (string, error) {
 		    Subject   string `json:"sub,omitempty"`
 
 	*/
+
 	token.Claims = jwt.MapClaims{
 		"exp": time.Now().Add(time.Minute * 15).Unix(),
 		"iat": time.Now().Unix(),
@@ -208,15 +209,23 @@ func ParseAndDecryptToken(r *http.Request) (*jwt.Token, error) {
 
 //IsAccessTokenValid checks the expiry time of the token
 func IsAccessTokenValid(token *jwt.Token) bool {
-	expiryTime := int64(math.MaxInt64)
+
+	expiryTime := float64(math.MaxFloat64)
 
 	//Check the expiry time in claims
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		expiryTime = claims["exp"].(int64)
-	}
+	// if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+	// 	// fmt.Println(reflect.TypeOf(claims["exp"]))
+	// 	expiryTime = claims["exp"].(float64)
+	// }
+
+	claims := token.Claims.(jwt.MapClaims)
+	expiryTime = claims["exp"].(float64)
+
+	fmt.Println(expiryTime, float64(time.Now().Unix()))
 
 	//May use of until might be better?
-	if expiryTime < time.Now().Unix() {
+	if expiryTime < float64(time.Now().Unix()) {
+		fmt.Println("true --- expiry less than now")
 		return true
 	}
 	return false

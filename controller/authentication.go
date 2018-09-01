@@ -23,6 +23,19 @@ type payload struct {
 	body     string
 }
 
+//CheckHeaderAuthorization check if header has token
+func CheckHeaderAuthorization(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		fmt.Println("auth empty")
+		http.Error(w, "Forbidden", http.StatusForbidden)
+	} else {
+		fmt.Println("auth header not empty")
+		next(w, r)
+	}
+}
+
 //ValidateAccessToken checks if the token exists and whether it is valid
 func ValidateAccessToken(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	token, err := service.ParseAndDecryptToken(r)
@@ -34,16 +47,14 @@ func ValidateAccessToken(w http.ResponseWriter, r *http.Request, next http.Handl
 	//Check if access token is valid
 	if service.IsAccessTokenValid(token) {
 		next(w, r)
-	} else {
-		//If access token is not valid then check newAccessToken func is called
-		token := newAccessToken(token) //Should this be moved to jwt.go (service)?
+	}
+	//If access token is not valid then check newAccessToken func is called
+	getNewtoken := newAccessToken(token) //Should this be moved to jwt.go (service)?
 
-		if token == "New refresh token required!" {
-			w.Write([]byte("Need refresh Token"))
-			http.HandleFunc("/login", Login)
-		} else {
-			next(w, r)
-		}
+	if getNewtoken == "New refresh token required!" {
+		w.Write([]byte("Need refresh Token"))
+	} else {
+		next(w, r)
 	}
 }
 
@@ -63,6 +74,7 @@ func newAccessToken(token *jwt.Token) string {
 
 //Login user by reading the payload, authenticating user, creating access and refresh tokens
 func Login(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("This ran")
 	requestUser := new(models.User)
 
 	//Get information from request body

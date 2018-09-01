@@ -8,11 +8,13 @@ import (
 	"github.com/urfave/negroni"
 )
 
+var RouterTest *mux.Router
+
 func initRoutes() *mux.Router {
-	router := mux.NewRouter()
-	router = setHelloRoute(router)
-	router = setAuthenticationRoute(router)
-	return router
+	RouterTest := mux.NewRouter()
+	RouterTest = setHelloRoute(RouterTest)
+	RouterTest = setAuthenticationRoute(RouterTest)
+	return RouterTest
 }
 
 func main() {
@@ -29,8 +31,10 @@ func setAuthenticationRoute(router *mux.Router) *mux.Router {
 	// 		negroni.HandlerFunc(controller.ValidateAccessToken),
 	// 		negroni.HandlerFunc(controller.RefreshToken),
 	// 	)).Methods("POST")
+
 	router.Handle("/fileaccess",
 		negroni.New(
+			negroni.HandlerFunc(controller.CheckHeaderAuthorization),
 			negroni.HandlerFunc(controller.ValidateAccessToken),
 			negroni.HandlerFunc(controller.FileInsideServer),
 		)).Methods("GET")
@@ -51,6 +55,7 @@ func setHelloRoute(router *mux.Router) *mux.Router {
 
 	router.Handle("/hello",
 		negroni.New(
+			negroni.HandlerFunc(controller.ValidateAccessToken),
 			negroni.HandlerFunc(controller.HelloController),
 		)).Methods("GET")
 
