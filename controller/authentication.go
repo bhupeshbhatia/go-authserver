@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -44,6 +45,8 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
+	fmt.Println(service.AuthenticateUser(requestUser))
+
 	//Authenticate user using information from request body
 	if !service.AuthenticateUser(requestUser) {
 		w.Write([]byte("Unable to locate user. Please sign in"))
@@ -66,11 +69,17 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: refreshToken,
 	}
 
+	accessAndRefreshTokens, err := json.Marshal(tokens)
+	if err != nil {
+		err = errors.Wrap(err, "token json not created.")
+		log.Println(err)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(tokens.AccessToken))
-	w.Write([]byte(tokens.RefreshToken))
+	w.Write(accessAndRefreshTokens)
 }
 
+//FileInsideServer for testing
 func FileInsideServer(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	w.Write([]byte("This is the file I am trying to access"))
 }
