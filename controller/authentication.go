@@ -8,6 +8,7 @@ import (
 
 	"github.com/bhupeshbhatia/go-authserver/models"
 	"github.com/bhupeshbhatia/go-authserver/service"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 )
 
@@ -17,10 +18,14 @@ type Tokens struct {
 	RefreshToken string
 }
 
+type payload struct {
+	newToken string
+	body     string
+}
+
 //ValidateAccessToken checks if the token exists and whether it is valid
 func ValidateAccessToken(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	token, err := service.ParseAndDecryptToken(r)
-
 	if err != nil {
 		err = errors.Wrap(err, "Error parsing JWT")
 		log.Println(err)
@@ -29,8 +34,28 @@ func ValidateAccessToken(w http.ResponseWriter, r *http.Request, next http.Handl
 	if service.IsAccessTokenValid(token) {
 		next(w, r)
 	} else {
-		w.WriteHeader(http.StatusUnauthorized)
+		token := newAccessToken(token) //Should this be moved to jwt.go?
+		if token == "New refresh token required!" {
+			w.Write([]byte("Need refresh Token"))
+			http.HandleFunc("/login", Login)
+		} else {
+			next(w, r)
+		}
 	}
+}
+
+//newAccessToken is used when previous access token has expired
+func newAccessToken(token *jwt.Token) string {
+	if service.IsRefreshTokenValid(token) {
+		userUUID := service.GetUUIDFromRedis(token)
+		token, err := service.GenerateAccessToken(userUUID)
+		if err != nil {
+			err = errors.Wrap(err, "Access token not generated")
+			log.Println(err)
+		}
+		return token
+	}
+	return "New refresh token required!"
 }
 
 //Login user by reading the payload, authenticating user, creating access and refresh tokens
@@ -58,7 +83,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	refreshToken, err := service.RefreshToken()
+	refreshToken, err := service.GenerateRefreshToken()
 	if err != nil {
 		err = errors.Wrap(err, "Refresh token not generated.")
 		log.Println(err)
@@ -81,6 +106,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 //FileInsideServer for testing
 func FileInsideServer(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+
 	w.Write([]byte("This is the file I am trying to access"))
 }
 

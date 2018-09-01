@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"time"
 
@@ -173,8 +174,8 @@ func AuthenticateUser(user *models.User) bool {
 	return user.Username == testUser.Username && bcrypt.CompareHashAndPassword([]byte(testUser.Password), []byte(user.Password)) == nil
 }
 
-//RefreshToken creates the refresh token for JWT authentication
-func RefreshToken() (string, error) {
+//GenerateRefreshToken creates the refresh token for JWT authentication
+func GenerateRefreshToken() (string, error) {
 	//When checking the token - this is the algorithm used
 	token := jwt.New(jwt.SigningMethodRS512)
 
@@ -207,14 +208,36 @@ func ParseAndDecryptToken(r *http.Request) (*jwt.Token, error) {
 
 //IsAccessTokenValid checks the expiry time of the token
 func IsAccessTokenValid(token *jwt.Token) bool {
-	var expiryTime int64
+	expiryTime := int64(math.MaxInt64)
+
 	//Check the expiry time in claims
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		expiryTime = claims["exp"].(int64)
 	}
 
+	//May use of until might be better?
 	if expiryTime < time.Now().Unix() {
 		return true
 	}
 	return false
+}
+
+//IsRefreshTokenValid checks the expiry time of the token
+func IsRefreshTokenValid(token *jwt.Token) bool {
+	//Receive expiry time from database
+	expiryTime := time.Now().Add(time.Hour * 168).Unix()
+
+	//CONNECT TO REDIS
+
+	//May use of until might be better?
+	if expiryTime < time.Now().Unix() {
+		return true
+	}
+	return false
+}
+
+//GetUUIDFromRedis get the UUID for refresh token and returns UUID
+func GetUUIDFromRedis(token *jwt.Token) string {
+	//connect to db and find out UUID
+	return "UUID"
 }
