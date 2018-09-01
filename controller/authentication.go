@@ -31,10 +31,13 @@ func ValidateAccessToken(w http.ResponseWriter, r *http.Request, next http.Handl
 		log.Println(err)
 	}
 
+	//Check if access token is valid
 	if service.IsAccessTokenValid(token) {
 		next(w, r)
 	} else {
-		token := newAccessToken(token) //Should this be moved to jwt.go?
+		//If access token is not valid then check newAccessToken func is called
+		token := newAccessToken(token) //Should this be moved to jwt.go (service)?
+
 		if token == "New refresh token required!" {
 			w.Write([]byte("Need refresh Token"))
 			http.HandleFunc("/login", Login)
@@ -44,7 +47,7 @@ func ValidateAccessToken(w http.ResponseWriter, r *http.Request, next http.Handl
 	}
 }
 
-//newAccessToken is used when previous access token has expired
+//newAccessToken is used when previous access token has expired. It calls IsRefreshTokenValid to check if new access token can be generated.
 func newAccessToken(token *jwt.Token) string {
 	if service.IsRefreshTokenValid(token) {
 		userUUID := service.GetUUIDFromRedis(token)
