@@ -24,11 +24,14 @@ func main() {
 
 func setAuthenticationRoute(router *mux.Router) *mux.Router {
 	router.HandleFunc("/login", controller.Login).Methods("POST")
-	// router.HandleFunc("/refresh-token", controller.).Methods("POST")
+	router.HandleFunc("/refresh-token", controller.RefreshToken).Methods("GET")
+	// This is the "get access-token using refresh token"
+	// I mean, we dont need another endpoint. This endpoint does that.
+	// This will generate access token from refresh token, if that was what you meant
+	router.HandleFunc("/access-token", controller.AccessToken).Methods("GET")
 
 	router.Handle("/fileaccess",
 		negroni.New(
-			negroni.HandlerFunc(controller.ValidateAccessToken),
 			negroni.HandlerFunc(controller.FileInsideServer),
 		)).Methods("GET")
 
@@ -49,7 +52,6 @@ func setHelloRoute(router *mux.Router) *mux.Router {
 
 	router.Handle("/hello",
 		negroni.New(
-			negroni.HandlerFunc(controller.ValidateTokens),
 			negroni.HandlerFunc(controller.HelloController),
 		)).Methods("GET")
 

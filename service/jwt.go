@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"time"
 
@@ -17,6 +16,14 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type RefreshToken struct {
+	UserUUID string
+	Exp      time.Time
+}
+
+// var RefreshTokens map[string]string
+var RefreshTokens = make(map[string]RefreshToken)
 
 //JWTAuthentication files struct
 type JWTAuthentication struct {
@@ -109,6 +116,9 @@ uwIDAQAB
 
 //GenerateAccessToken creates the token for JWT authentication
 func GenerateAccessToken(userUUID string) (string, error) {
+	if userUUID == "" {
+		return "", errors.New("User-UUID not set")
+	}
 	//When checking the token - this is the algorithm used
 	token := jwt.New(jwt.SigningMethodRS512)
 
@@ -123,7 +133,7 @@ func GenerateAccessToken(userUUID string) (string, error) {
 		    Subject   string `json:"sub,omitempty"`
 
 	*/
-
+	// "exp": time.Now().Add(time.Minute * 15).Unix(),
 	token.Claims = jwt.MapClaims{
 		"exp": time.Now().Add(time.Minute * 15).Unix(),
 		"iat": time.Now().Unix(),
@@ -141,10 +151,12 @@ func GenerateAccessToken(userUUID string) (string, error) {
 }
 
 //AuthenticateUser connects to MongoDb here. Need to come up with a better way of passing passwords
-func AuthenticateUser(user *models.User) bool {
+func AuthenticateUser(user *models.User) *models.User {
+	// calls db
+	// 1. UUID - user
+
 	//This is only temperary -- Should technically check from Db
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testing"), 10)
-
 	generatedUUID, err := uuid.NewV4()
 	if err != nil {
 		err = errors.Wrap(err, "UUID not generated.")
@@ -161,6 +173,8 @@ func AuthenticateUser(user *models.User) bool {
 	//Changed byte[] to string
 	uniqueID := string(convertedByteArrayUUID)
 
+	fmt.Println(uniqueID)
+
 	testUser := models.User{
 		UUID:     uniqueID,
 		Username: "test",
@@ -172,7 +186,30 @@ func AuthenticateUser(user *models.User) bool {
 
 	fmt.Println(testUser.UUID, testUser.Username, testUser.Password)
 
-	return user.Username == testUser.Username && bcrypt.CompareHashAndPassword([]byte(testUser.Password), []byte(user.Password)) == nil
+	isAuthenticated := user.Username == testUser.Username && bcrypt.CompareHashAndPassword([]byte(testUser.Password), []byte(user.Password)) == nil
+
+	// Does the "uniqurID have value? On line 177. Put a print on 176"
+	/////It does...its the new uuid -- that's being converted to string
+	//testUsers good enough?
+
+	// This is weird. How can uuid be empty then?
+	// Its good I am getting
+	//a Oh, ok. Looks good. WHats the problem now?
+	//refresh is good too --- if we don't have authorization header - it gives 401--
+	//which is what we want
+	//testing access now
+	//Access token requires a refresh token --- I am getting 401 -- even when I pass
+	//authorization
+	// Which endpoint is it? /login?
+	//access-token
+	// Others work?
+	//Login and refresh work
+
+	//See of we get the value of "token" in AccessToken method?
+	if isAuthenticated {
+		return &testUser
+	}
+	return nil
 }
 
 //GenerateRefreshToken creates the refresh token for JWT authentication
@@ -187,6 +224,8 @@ func GenerateRefreshToken() (string, error) {
 		log.Println(err)
 		return "", err
 	}
+
+	//STORE IT IN DB with time = 7 days
 	return tokenString, nil
 }
 
@@ -203,50 +242,33 @@ func ParseAndDecryptToken(r *http.Request) (*jwt.Token, error) {
 	if err != nil {
 		err = errors.Wrap(err, "Error decrypting JWT")
 		log.Println(err)
+		return nil, err
 	}
 	return token, nil
 }
 
-//IsAccessTokenValid checks the expiry time of the token
-func IsAccessTokenValid(token *jwt.Token) bool {
-
-	expiryTime := float64(math.MaxFloat64)
-
-	//Check the expiry time in claims
-	// if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-	// 	// fmt.Println(reflect.TypeOf(claims["exp"]))
-	// 	expiryTime = claims["exp"].(float64)
-	// }
-
-	claims := token.Claims.(jwt.MapClaims)
-	expiryTime = claims["exp"].(float64)
-
-	fmt.Println(expiryTime, float64(time.Now().Unix()))
-
-	//May use of until might be better?
-	if expiryTime < float64(time.Now().Unix()) {
-		fmt.Println("true --- expiry less than now")
-		return true
-	}
-	return false
+//IsTokenValid checks if token the token has expired
+func IsTokenValid(expiryTime time.Time, addDuration time.Duration) bool {
+	isExpired := time.Now().Add(addDuration).Unix() <= expiryTime.Unix()
+	return isExpired
 }
 
-//IsRefreshTokenValid checks the expiry time of the token
-func IsRefreshTokenValid(token *jwt.Token) bool {
-	//Receive expiry time from database
-	expiryTime := time.Now().Add(time.Hour * 168).Unix()
+// //GetUUIDFromAccessToken get the UUID for refresh token and returns UUID
+// func GetUUIDFromAccessToken(token *jwt.Token) string {
+// 	claims := token.Claims.(jwt.MapClaims)
+// 	userUUID := claims["jti"].(string)
 
-	//CONNECT TO REDIS
+// 	return userUUID
+// }
 
-	//May use of until might be better?
-	if expiryTime < time.Now().Unix() {
-		return true
-	}
-	return false
-}
+// //GetRefreshTokenFromRedis takes uuid and gets refresh token from db
+// func GetRefreshTokenFromRedis(userUUID string) string {
+// 	//Get refreshToken from Redis
+// 	return "refreshToken"
+// }
 
-//GetUUIDFromRedis get the UUID for refresh token and returns UUID
-func GetUUIDFromRedis(token *jwt.Token) string {
-	//connect to db and find out UUID
-	return "UUID"
-}
+// //GetUUIDFromRedis - gets refreshToken and checks for UUID in Redis
+// func GetUUIDFromRedis(token string) string {
+// 	//get uuid from Redis
+// 	return "userUUID"
+// }
