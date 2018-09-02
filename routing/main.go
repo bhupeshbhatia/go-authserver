@@ -8,13 +8,11 @@ import (
 	"github.com/urfave/negroni"
 )
 
-var RouterTest *mux.Router
-
 func initRoutes() *mux.Router {
-	RouterTest := mux.NewRouter()
-	RouterTest = setHelloRoute(RouterTest)
-	RouterTest = setAuthenticationRoute(RouterTest)
-	return RouterTest
+	router := mux.NewRouter()
+	router = setHelloRoute(router)
+	router = setAuthenticationRoute(router)
+	return router
 }
 
 func main() {
@@ -26,18 +24,14 @@ func main() {
 
 func setAuthenticationRoute(router *mux.Router) *mux.Router {
 	router.HandleFunc("/login", controller.Login).Methods("POST")
-	// router.Handle("/refreshauth",
-	// 	negroni.New(
-	// 		negroni.HandlerFunc(controller.ValidateAccessToken),
-	// 		negroni.HandlerFunc(controller.RefreshToken),
-	// 	)).Methods("POST")
+	// router.HandleFunc("/refresh-token", controller.).Methods("POST")
 
 	router.Handle("/fileaccess",
 		negroni.New(
-			negroni.HandlerFunc(controller.CheckHeaderAuthorization),
 			negroni.HandlerFunc(controller.ValidateAccessToken),
 			negroni.HandlerFunc(controller.FileInsideServer),
 		)).Methods("GET")
+
 	// router.Handle("/logout",
 	//     negroni.New(
 	//         negroni.HandlerFunc(authentication.RequireTokenAuthentication),
@@ -55,7 +49,7 @@ func setHelloRoute(router *mux.Router) *mux.Router {
 
 	router.Handle("/hello",
 		negroni.New(
-			negroni.HandlerFunc(controller.ValidateAccessToken),
+			negroni.HandlerFunc(controller.ValidateTokens),
 			negroni.HandlerFunc(controller.HelloController),
 		)).Methods("GET")
 
