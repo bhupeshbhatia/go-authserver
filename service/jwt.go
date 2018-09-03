@@ -15,13 +15,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type RefreshToken struct {
-	UserUUID string
-	Exp      time.Time
-}
+// type RefreshToken struct {
+// 	UserUUID string
+// 	Exp      time.Time
+// }
 
 // var RefreshTokens map[string]string
-var RefreshTokens = make(map[string]RefreshToken)
+var RefreshTokens = make(map[string]models.RefreshToken)
 
 //JWTAuthentication files struct
 type JWTAuthentication struct {
@@ -196,7 +196,7 @@ func AuthenticateUser(user *models.User) (*models.User, error) {
 }
 
 //GenerateRefreshToken creates the refresh token for JWT authentication
-func GenerateRefreshToken() (string, error) {
+func GenerateRefreshToken(userUUID string) (string, error) {
 	//When checking the token - this is the algorithm used
 	token := jwt.New(jwt.SigningMethodRS512)
 
@@ -209,6 +209,19 @@ func GenerateRefreshToken() (string, error) {
 	}
 
 	//STORE IT IN DB with time = 7 days
+
+	refreshToken := models.RefreshToken{
+		UserUUID: userUUID,
+		Exp:      time.Now().AddDate(0, 0, 7).String(),
+		Token:    tokenString,
+	}
+
+	teest, err := SetToken(userUUID, &refreshToken)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println(teest)
+	fmt.Println(tokenString)
 	return tokenString, nil
 }
 

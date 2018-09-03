@@ -9,15 +9,11 @@ import (
 
 	"github.com/bhupeshbhatia/go-authserver/models"
 	"github.com/bhupeshbhatia/go-authserver/service"
+	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 )
 
 //Tokens contains access and refresh token
-type Tokens struct {
-	AccessToken  string
-	RefreshToken string
-}
-
 //Login user by reading the payload, authenticating user, creating access and refresh tokens
 func Login(w http.ResponseWriter, r *http.Request) {
 	requestUser := new(models.User)
@@ -44,7 +40,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		refreshToken, err := service.GenerateRefreshToken()
+		refreshToken, err := service.GenerateRefreshToken(user.UUID)
 		if err != nil {
 			err = errors.Wrap(err, "Refresh token not generated.")
 			log.Println(err)
@@ -57,13 +53,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		// 	log.Fatalln(err)
 		// }
 
-		service.RefreshTokens["refreshToken"] = service.RefreshToken{
+		service.RefreshTokens["refreshToken"] = models.RefreshToken{
 			UserUUID: user.UUID,
 			Exp:      time.Now().AddDate(0, 0, 7),
 		}
 
 		tokens := getToken(accessToken, refreshToken)
 		w.Header().Set("Content-Type", "application/json")
+		fmt.Println("+++++++++++++++++++++++++++++")
+		fmt.Println(tokens)
 		w.Write(tokens)
 	} else {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -71,7 +69,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func getToken(accessToken string, refreshToken string) []byte {
-	tokens := Tokens{
+	tokens := models.Tokens{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}
@@ -93,7 +91,26 @@ func RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshToken, err := service.GenerateRefreshToken()
+	// /*
+	generatedUUID, err := uuid.NewV4()
+	if err != nil {
+		err = errors.Wrap(err, "UUID not generated.")
+		log.Println(err)
+	}
+
+	//Convert UUID to byte[]
+	convertedByteArrayUUID, err := generatedUUID.MarshalText()
+	if err != nil {
+		err = errors.Wrap(err, "UUID not converted to byte[].")
+		log.Println(err)
+	}
+
+	//Changed byte[] to string
+	uniqueID := string(convertedByteArrayUUID)
+
+	// */
+
+	refreshToken, err := service.GenerateRefreshToken(uniqueID)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 	}
