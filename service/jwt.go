@@ -6,12 +6,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/bhupeshbhatia/go-authserver/models"
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/dgrijalva/jwt-go/request"
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
@@ -114,7 +112,8 @@ uwIDAQAB
 	return rsaPub
 }
 
-//GenerateAccessToken creates the token for JWT authentication
+//GenerateAccessToken creates the token for JWT authentication -
+//NEED TO CHECK IF UUID IS VALID
 func GenerateAccessToken(userUUID string) (string, error) {
 	if userUUID == "" {
 		return "", errors.New("User-UUID not set")
@@ -151,12 +150,11 @@ func GenerateAccessToken(userUUID string) (string, error) {
 }
 
 //AuthenticateUser connects to MongoDb here. Need to come up with a better way of passing passwords
-func AuthenticateUser(user *models.User) *models.User {
+func AuthenticateUser(user *models.User) (*models.User, error) {
 	// calls db
 	// 1. UUID - user
 
 	//This is only temperary -- Should technically check from Db
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testing"), 10)
 	generatedUUID, err := uuid.NewV4()
 	if err != nil {
 		err = errors.Wrap(err, "UUID not generated.")
@@ -175,6 +173,8 @@ func AuthenticateUser(user *models.User) *models.User {
 
 	fmt.Println(uniqueID)
 
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testing"), 10)
+
 	testUser := models.User{
 		UUID:     uniqueID,
 		Username: "test",
@@ -188,28 +188,11 @@ func AuthenticateUser(user *models.User) *models.User {
 
 	isAuthenticated := user.Username == testUser.Username && bcrypt.CompareHashAndPassword([]byte(testUser.Password), []byte(user.Password)) == nil
 
-	// Does the "uniqurID have value? On line 177. Put a print on 176"
-	/////It does...its the new uuid -- that's being converted to string
-	//testUsers good enough?
-
-	// This is weird. How can uuid be empty then?
-	// Its good I am getting
-	//a Oh, ok. Looks good. WHats the problem now?
-	//refresh is good too --- if we don't have authorization header - it gives 401--
-	//which is what we want
-	//testing access now
-	//Access token requires a refresh token --- I am getting 401 -- even when I pass
-	//authorization
-	// Which endpoint is it? /login?
-	//access-token
-	// Others work?
-	//Login and refresh work
-
 	//See of we get the value of "token" in AccessToken method?
 	if isAuthenticated {
-		return &testUser
+		return &testUser, nil
 	}
-	return nil
+	return nil, errors.WithMessage(err, "User not found") //NEED TO RETURN ERROR
 }
 
 //GenerateRefreshToken creates the refresh token for JWT authentication
@@ -230,45 +213,26 @@ func GenerateRefreshToken() (string, error) {
 }
 
 //ParseAndDecryptToken service parses a request header and decrypts token
-func ParseAndDecryptToken(r *http.Request) (*jwt.Token, error) {
-	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-		return getPublicKey(), nil
-	})
+// func ParseAndDecryptToken(r *http.Request) (*jwt.Token, error) {
+// 	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
+// 		// Don't forget to validate the alg is what you expect:
+// 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+// 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+// 		}
+// 		return getPublicKey(), nil
+// 	})
 
-	if err != nil {
-		err = errors.Wrap(err, "Error decrypting JWT")
-		log.Println(err)
-		return nil, err
-	}
-	return token, nil
-}
+// 	if err != nil {
+// 		err = errors.Wrap(err, "Error decrypting JWT")
+// 		log.Println(err)
+// 		return nil, err
+// 	}
+// 	return token, nil
+// }
 
 //IsTokenValid checks if token the token has expired
 func IsTokenValid(expiryTime time.Time, addDuration time.Duration) bool {
-	isExpired := time.Now().Add(addDuration).Unix() <= expiryTime.Unix()
+	//
+	isExpired := expiryTime.Unix() <= time.Now().Add(addDuration).Unix()
 	return isExpired
 }
-
-// //GetUUIDFromAccessToken get the UUID for refresh token and returns UUID
-// func GetUUIDFromAccessToken(token *jwt.Token) string {
-// 	claims := token.Claims.(jwt.MapClaims)
-// 	userUUID := claims["jti"].(string)
-
-// 	return userUUID
-// }
-
-// //GetRefreshTokenFromRedis takes uuid and gets refresh token from db
-// func GetRefreshTokenFromRedis(userUUID string) string {
-// 	//Get refreshToken from Redis
-// 	return "refreshToken"
-// }
-
-// //GetUUIDFromRedis - gets refreshToken and checks for UUID in Redis
-// func GetUUIDFromRedis(token string) string {
-// 	//get uuid from Redis
-// 	return "userUUID"
-// }

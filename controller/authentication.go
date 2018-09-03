@@ -18,11 +18,6 @@ type Tokens struct {
 	RefreshToken string
 }
 
-type payload struct {
-	newToken string
-	body     string
-}
-
 //Login user by reading the payload, authenticating user, creating access and refresh tokens
 func Login(w http.ResponseWriter, r *http.Request) {
 	requestUser := new(models.User)
@@ -35,50 +30,37 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	user := service.AuthenticateUser(requestUser)
-
-	//UUID is empty --- cause there is nothing in the user --- I will generate a new one
-	// Wait
+	user, err := service.AuthenticateUser(requestUser)
+	if err != nil {
+		log.Println("User not found during authentication")
+		w.WriteHeader(http.StatusUnauthorized)
+	}
 
 	if user != nil {
 		accessToken, err := service.GenerateAccessToken(user.UUID)
 		if err != nil {
 			err = errors.Wrap(err, "Access token not generated.")
 			log.Println(err)
+			return
 		}
 
 		refreshToken, err := service.GenerateRefreshToken()
 		if err != nil {
 			err = errors.Wrap(err, "Refresh token not generated.")
 			log.Println(err)
+			return
 		}
 
-		//
-		exp, err := time.ParseDuration("168h")
-		if err != nil {
-			log.Fatalln(err)
-		}
-		service.RefreshTokens[refreshToken] = service.RefreshToken{
+		//THIS IS WHERE THE PROBLEM STARTS
+		// exp, err := time.ParseDuration("168h")
+		// if err != nil {
+		// 	log.Fatalln(err)
+		// }
+
+		service.RefreshTokens["refreshToken"] = service.RefreshToken{
 			UserUUID: user.UUID,
-			Exp:      time.Now().Add(exp),
+			Exp:      time.Now().AddDate(0, 0, 7),
 		}
-
-		// Check the time value here?
-		// I think it might be type converesion Somwhere in Json unmarsha;marshal
-		//time: unknown unit d in duration 7d
-		//error - crash
-		// Try again? = login is good - iits because parseduration doesn't have d
-		// Yup. Butwhat about /access-token? --- same thing
-
-		// Everything works? - except for access token
-		// Ah, lets figure it out tomorrow. I am having difficulty keeping my eyes open
-		//Sure lets do it tomorrow//
-
-		//Thanks for testing		//-62135596800 1535874416
-		// That should do it?
-		// Try again? -- crashed
-		//..\controller\authentication.go:56:12: assignment mismatch: 2 variables but 1 values
-		//..\controller\authentication.go:56:29: too many arguments in call to time.Now().Add
 
 		tokens := getToken(accessToken, refreshToken)
 		w.Header().Set("Content-Type", "application/json")
@@ -104,27 +86,7 @@ func getToken(accessToken string, refreshToken string) []byte {
 
 //RefreshToken creates a refresh token for jwt
 func RefreshToken(w http.ResponseWriter, r *http.Request) {
-	//What do you mean old? --- I thought we just checked the time?
-	// Yeah, the refresh token that user gets at login, when it
-	//expires, the client hits this endpoint to get a new one,
-	// and passes the old one in return. Or did we discuss something else?
-	// Lets not make refresh same as JWT, I might switch it with crypto-rand because of bandwidth efficiency. No need to encrypt/decrypt refresh token then?
 
-	//what happens when token is empty?
-	// 401
-	// Yeah, we dont enrypt/add-secrets to refresh token. Just a random crypto string,
-	// the way it is. Its pointless to add stuff to it,
-	// since the key itself is the source of auth.
-	//Do you want to add anything to refresh token look at jwt.go/ -> generateRefreshToken
-	// I'll change that method to gnereate crypto/rand - a string.
-	// Nothing else should be affected
-	//What about after we receive refresh token? send it with accessToken?
-	// on /refresh-token endpoint? Nah, just send refresh token.
-	// I dont see why we need to send access token
-	//Anything else for this?
-	// Looks good to me. Gimme a min, I am just gonna create a new repo
-	// for that events service so CI runs its tests in meantime....
-	//OK
 	token := r.Header.Get("Authorization")
 	if token == "" {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -136,11 +98,7 @@ func RefreshToken(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}
 	w.Write([]byte(refreshToken))
-
 }
-
-//In login - access token is missing- its returning empty
-// Any error? You got team viewer installed?
 
 //AccessToken gets a new access token using RefreshToken
 func AccessToken(w http.ResponseWriter, r *http.Request) {
@@ -150,41 +108,66 @@ func AccessToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("=====================")
-	fmt.Println(token)
-	//it crashed -- line 58
-	// Error?
-	// Wait, lemme try some stuff
-	//..\controller\authentication.go:58:28: too many arguments in call to time.Now().Add
-	// Oh, wait lol
-	//FOrgot something
-	refreshToken := service.RefreshTokens[token]
+	fmt.Println(r.Header)
 
-	fmt.Println(service.IsTokenValid(refreshToken.Exp, time.Hour*168)) //false
-	// Wait.... Negative?!
-	//refresh.exp.unix() = -62135596800
-	// Are you sure that this oen is negaive ^ -- yup ran it again -- same num
-	//time = 1535873877
-	// Try again? <---
-	fmt.Println(refreshToken.Exp.Unix(), time.Now().Unix()) //refresh is negative
+	// parsedToken, err := service.ParseAndDecryptToken(r)
+	// if err != nil {
+	// 	w.WriteHeader(http.StatusUnauthorized)
+	// 	return
+	// }
+
+	// expiry := parsedToken.Claims.(jwt.MapClaims)["exp"]
+	// userUUID := parsedToken.Claims.(jwt.MapClaims)["jti"]
+	// fmt.Println(expiry)
+	// fmt.Println(userUUID)
+
+	// fmt.Println(token)
+
+	//From Db get expiry time of refresh token
+
+	// refreshToken := service.RefreshToken {
+	// 	UserUUID:
+	// }
+
+	// test, ok := service.RefreshTokens["refreshToken"]
+	// fmt.Println(test)
+	// fmt.Println(ok)
+	// tokenStruct := service.RefreshTokens["refreshToken"]
+	// expiryTime := tokenStruct.Exp
+	// refreshToken := service.RefreshTokens[token] //this is wrong. there are no claims in refresh token. Need to check with db -- that's why refreshToken.Exp is empty
+	// fmt.Println(refreshToken)
+
+	// fmt.Println(service.IsTokenValid(refreshToken.Exp, time.Hour*168)) //false
+
+	// fmt.Println(expiryTime)
+	expiryTime := service.RefreshTokens["refreshToken"].Exp
+	fmt.Println(service.RefreshTokens["refreshToken"].Exp) //refresh is negative
+
 	//time is higher
 	// See which value is higher/lower?
 	// This is the issue them.
 	// How about this guy^
-	if !service.IsTokenValid(refreshToken.Exp, time.Hour*168) {
+	// if !service.IsTokenValid(refreshToken.Exp, time.Hour*168) {
+	// 	w.WriteHeader(http.StatusUnauthorized)
+	// 	return
+	// }
+
+	if !service.IsTokenValid(expiryTime, time.Hour*168) {
 		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("This is where it failed"))
 		return
 	}
 
-	accessToken, err := service.GenerateAccessToken(refreshToken.UserUUID)
+	// accessToken, err := service.GenerateAccessToken(refreshToken.UserUUID)
+
+	//Are we not trying to get this information from db? --
+	accessToken, err := service.GenerateAccessToken(service.RefreshTokens["refreshToken"].UserUUID)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	w.Write([]byte(accessToken))
-
 }
-
-//What's next? --- where do we check for 5 days thing?
 
 // //ValidateTokens checks if the token exists and whether it is valid
 // func ValidateAccessToken(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
