@@ -1,9 +1,8 @@
 package utils
 
-import (
-	"time"
-)
+import "time"
 
 type Time interface {
-	Now() time.Time
+	AddDate(years int, months int, days int) time.Time
+	String() string
 }

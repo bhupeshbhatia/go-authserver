@@ -1,9 +1,6 @@
 package service
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"log"
 	"time"
@@ -15,124 +12,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// type RefreshToken struct {
-// 	UserUUID string
-// 	Exp      time.Time
-// }
-
 // var RefreshTokens map[string]string
 var RefreshTokens = make(map[string]models.RefreshToken)
 
-//JWTAuthentication files struct
-type JWTAuthentication struct {
-	privateKey *rsa.PrivateKey
-	PublicKey  *rsa.PublicKey
+type Authentication struct {
+	Time    time.Time
+	NowTime func() time.Time
 }
 
-// //InitJWTAuthentication will return backend instance
-// func InitJWTAuthentication() *JWTAuthentication {
-// 	authInstance := &JWTAuthentication{
-// 		privateKey: getPrivateKey(),
-// 		PublicKey:  getPublicKey(),
-// 	}
-// 	return authInstance
-// }
-
-func getPrivateKey() *rsa.PrivateKey {
-
-	pKey := `-----BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA4w5xhil8YFSLptRxzQsiJgQm7DxfVx7nEFAndQDw/7a1VfIf
-hhzZlUYx6u+57kP4+JPhqLMl9hEPnJh2DMPV4wrQAOSe6pDK5UP/xZQx8ygy70lG
-fJ6MVo7mkXKaofKobOhkFIOhqtLU/6CrzFl+KdFIsD7pt+FxV6mMmPbnAvDN+hF5
-NwU6N61WGAZER8z7SSTgayGpuHdUKCdPwfuiUIEX3GxhskzV/ROiS+R/NbQZlsfm
-QqcBJ5FxhOtAVevi9s7x6LLTSQKopuuunSTTtu3ys/hs5m6AqNPPkLKqp6R8iXF1
-Lg0DMeQlFHYwEo3oRweMNhfYRzC3ukioSf+GuwIDAQABAoIBADlemeKLMujoE80Y
-WpSzXnJ6lBcWfgR2Q23EwuN2VG5YDONlZP+u5G8qKEyzO6hvNkYgn2DPuyS8VNR9
-VT6OcMmIHtxK57he01UwZDzY3/IPUydQvWWZbd4lBy7y5Q1MUbAK29avF7cgxD6+
-qwncBtusDJCzpLwYU1oR9ftkTyRXl8WzHUQ+/QILNnSCDsTrP8JsVaVxbd6FhKKn
-5sSyqM+dX7mtvVAOcj0OJSHZiit7fk5QG9Pi/5iP4pCdZf42sImsr++2GFOezfJd
-H5UU+ujTf+b4oGirnqgEDRrSr5IyykagWc07D2KJgyPzrkfFDxoB5C/ZC3C6C9AA
-Xwzd+GECgYEA5SPDfCMVBRFkYBoxKgbWEElquGiPMDSe+p6QSlX24UXFv8gzdtbT
-f33d27v2cpIOWYym3Er5JiSFq6oCr1cg9+mLP/tNc50sHrdHb8vRfn190nawFJHa
-eOe0b3ZePUtAxdd1HaZgq4bNnLYSbi//spdHuu6E1jZrzcmbvIm7PJECgYEA/awp
-rILMDvqHuGNlVr+kdcGfmFxA8y9Z1tZHLgqNjPQQlaOuyJn1cfYbIqghMLjk//Au
-VQ5gfKLc2abHQaVQ2dLqV846eNQvr+cnLQUrUqk41IZuN0HTMbvLHgOLkQNdsUMs
-1TmmPeMxh9X9cLqp7mZoY5CeWeWFOe3EJA1dZIsCgYEAklbf3yUMpJrx7wprQbrx
-9Z7dwH5OjGve6JJh9oemT0LfQ1dZvtj+ZBr/mPkXMR6keX6Bhol/S2Ph1ruSUWck
-0A/gdfFKCr9jUQ6eWgDif5UnyUUxuUFZNQRN0S3Yi+7GpFOxIUmDzagfIqmJZcPT
-2rwQ/IqeXayN9vR+ONABu3ECgYAECn4PdXXytyL6WPsASsU/6vmz36RZO2Pe/ELe
-BOUEXc7100mxgGJckmMURkFhGVDsktLqH/SBh8ak4PdDoHKNRcLd6zcbPaYU00XY
-fcCW7IMvP4T59F586FTwAXZztO4FKODJ9MUlLz1WwJ3s8cxLM+5tx5v+Kp3YsmTx
-fhUCyQKBgDCEkFexrqC2a1rHLh+pwTyvnE4JCVNt72FF8L51aEsG5tGGFvTvgUN6
-IlRCYASNhUK/3+hu337uOSolKXu0W+dFnp1/OLo6sUkuhxWGx3YLwGJygjSrOl5f
-3wIikQ0U/RjRr+/pI0/yw/w3Xcr7iUjei6SBxkiIeZL/749EcLNB
------END RSA PRIVATE KEY-----`
-
-	data, _ := pem.Decode([]byte(pKey))
-
-	// privateKeyFile.Close()
-
-	privateKeyImported, err := x509.ParsePKCS1PrivateKey(data.Bytes)
-	if err != nil {
-
-		err = errors.Wrap(err, "")
-		// log.Println(utils.ErrorStackTrace(err))
-		log.Fatalln(err)
-	}
-
-	return privateKeyImported
-}
-
-func getPublicKey() *rsa.PublicKey {
-
-	pKey := `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4w5xhil8YFSLptRxzQsi
-JgQm7DxfVx7nEFAndQDw/7a1VfIfhhzZlUYx6u+57kP4+JPhqLMl9hEPnJh2DMPV
-4wrQAOSe6pDK5UP/xZQx8ygy70lGfJ6MVo7mkXKaofKobOhkFIOhqtLU/6CrzFl+
-KdFIsD7pt+FxV6mMmPbnAvDN+hF5NwU6N61WGAZER8z7SSTgayGpuHdUKCdPwfui
-UIEX3GxhskzV/ROiS+R/NbQZlsfmQqcBJ5FxhOtAVevi9s7x6LLTSQKopuuunSTT
-tu3ys/hs5m6AqNPPkLKqp6R8iXF1Lg0DMeQlFHYwEo3oRweMNhfYRzC3ukioSf+G
-uwIDAQAB
------END PUBLIC KEY-----`
-
-	data, _ := pem.Decode([]byte(pKey))
-
-	// publicKeyFile.Close()
-
-	publicKeyImported, error := x509.ParsePKIXPublicKey(data.Bytes)
-	if error != nil {
-		log.Println(error)
-	}
-
-	rsaPub, ok := publicKeyImported.(*rsa.PublicKey)
-	if !ok {
-		log.Println(error)
-	}
-
-	return rsaPub
-}
-
-//GenerateAccessToken creates the token for JWT authentication -
-//NEED TO CHECK IF UUID IS VALID
-func GenerateAccessToken(userUUID string) (string, error) {
+func (a *Authentication) GenerateAccessToken(userUUID string) (string, error) {
 	if userUUID == "" {
 		return "", errors.New("User-UUID not set")
 	}
 	//When checking the token - this is the algorithm used
 	token := jwt.New(jwt.SigningMethodRS512)
-
-	//Claims on jwt tokens
-	/*
-			Audience  string `json:"aud,omitempty"`
-		    ExpiresAt int64  `json:"exp,omitempty"`
-		    Id        string `json:"jti,omitempty"`
-		    IssuedAt  int64  `json:"iat,omitempty"`
-		    Issuer    string `json:"iss,omitempty"`
-		    NotBefore int64  `json:"nbf,omitempty"`
-		    Subject   string `json:"sub,omitempty"`
-
-	*/
-	// "exp": time.Now().Add(time.Minute * 15).Unix(),
 	token.Claims = jwt.MapClaims{
 		"exp": time.Now().Add(time.Minute * 15).Unix(),
 		"iat": time.Now().Unix(),
@@ -140,7 +33,8 @@ func GenerateAccessToken(userUUID string) (string, error) {
 	}
 
 	//This is where the token is signing with the private key in the backend
-	tokenString, err := token.SignedString(getPrivateKey())
+	tokenString, err := token.SignedString(a.getPrivateKey())
+
 	if err != nil {
 		err = errors.Wrap(err, "JWT is not signed.")
 		return "", err
@@ -150,7 +44,7 @@ func GenerateAccessToken(userUUID string) (string, error) {
 }
 
 //AuthenticateUser connects to MongoDb here. Need to come up with a better way of passing passwords
-func AuthenticateUser(user *models.User) (*models.User, error) {
+func (a *Authentication) AuthenticateUser(user *models.User) (*models.User, error) {
 	// calls db
 	// 1. UUID - user
 
@@ -195,13 +89,22 @@ func AuthenticateUser(user *models.User) (*models.User, error) {
 	return nil, errors.WithMessage(err, "User not found") //NEED TO RETURN ERROR
 }
 
+func (a *Authentication) createRefreshToken(userUUID string, token string) models.RefreshToken {
+	refreshToken := models.RefreshToken{
+		UserUUID: userUUID,
+		Exp:      a.NowTime().AddDate(0, 0, 7),
+		Token:    token,
+	}
+	return refreshToken
+}
+
 //GenerateRefreshToken creates the refresh token for JWT authentication
-func GenerateRefreshToken(userUUID string) (string, error) {
+func (a *Authentication) GenerateRefreshToken(userUUID string) (string, error) {
 	//When checking the token - this is the algorithm used
 	token := jwt.New(jwt.SigningMethodRS512)
 
 	//This is where the token is signing with the private key in the backend
-	tokenString, err := token.SignedString(getPrivateKey())
+	tokenString, err := token.SignedString(a.getPrivateKey())
 	if err != nil {
 		err = errors.Wrap(err, "Refresh token not signed.")
 		log.Println(err)
@@ -210,42 +113,38 @@ func GenerateRefreshToken(userUUID string) (string, error) {
 
 	//STORE IT IN DB with time = 7 days
 
-	refreshToken := models.RefreshToken{
-		UserUUID: userUUID,
-		Exp:      time.Now().AddDate(0, 0, 7).String(),
-		Token:    tokenString,
-	}
+	// refreshToken := models.RefreshToken{
+	// 	UserUUID: userUUID,
+	// 	Exp:      a.NowTime().AddDate(0, 0, 7),
+	// 	Token:    tokenString,
+	// }
 
-	teest, err := SetToken(userUUID, &refreshToken)
-	if err != nil {
-		return "", err
-	}
-	fmt.Println(teest)
+	refreshToken := a.createRefreshToken(userUUID, tokenString)
+	log.Println(refreshToken)
+
+	// client := redis.NewClient(&redis.Options{
+	// 	//"localhost:6379"
+	// 	//""
+	// 	//0
+	// 	Addr:     "localhost:6379",
+	// 	Password: "", // no password set
+	// 	DB:       0,  // use default DB
+	// })
+
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	// teest := client.Set(userUUID, &refreshToken, 6*time.Hour)
+	// fmt.Println(teest)
 	fmt.Println(tokenString)
 	return tokenString, nil
 }
 
-//ParseAndDecryptToken service parses a request header and decrypts token
-// func ParseAndDecryptToken(r *http.Request) (*jwt.Token, error) {
-// 	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
-// 		// Don't forget to validate the alg is what you expect:
-// 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-// 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-// 		}
-// 		return getPublicKey(), nil
-// 	})
-
-// 	if err != nil {
-// 		err = errors.Wrap(err, "Error decrypting JWT")
-// 		log.Println(err)
-// 		return nil, err
-// 	}
-// 	return token, nil
-// }
-
 //IsTokenValid checks if token the token has expired
-func IsTokenValid(expiryTime time.Time, addDuration time.Duration) bool {
+func (a *Authentication) IsTokenValid(expiryTime time.Time, addDuration time.Duration) bool {
 	//
 	isExpired := expiryTime.Unix() <= time.Now().Add(addDuration).Unix()
 	return isExpired
+
 }

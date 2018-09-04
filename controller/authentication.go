@@ -13,9 +13,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+var EndPoint interface {
+	Login(w http.ResponseWriter, r *http.Request)
+}
+
+var EndPointAccess struct {
+	ep *EndPoint
+}
+
 //Tokens contains access and refresh token
 //Login user by reading the payload, authenticating user, creating access and refresh tokens
-func Login(w http.ResponseWriter, r *http.Request) {
+func (e *EndPointAccess) Login(w http.ResponseWriter, r *http.Request) {
 	requestUser := new(models.User)
 
 	//Get information from request body
@@ -24,6 +32,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err = errors.Wrap(err, "User cannot be decoded from request body.")
 		log.Println(err)
+		w.WriteHeader(http.StatusUnauthorized)
 	}
 
 	user, err := service.AuthenticateUser(requestUser)

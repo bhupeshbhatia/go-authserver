@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 //Tokens when the user receives the token from authorization server
 type Tokens struct {
 	AccessToken  string `json:"access_token"`
@@ -16,6 +18,6 @@ type AccessToken struct {
 //RefreshToken struct for refresh tokens
 type RefreshToken struct {
 	UserUUID string
-	Exp      string
+	Exp      time.Time
 	Token    string
 }
